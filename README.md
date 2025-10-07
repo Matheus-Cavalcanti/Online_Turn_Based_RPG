@@ -2,12 +2,13 @@
 Primeiro trabalho da disciplina Redes de Computadores
 
 Grupo:
-Pedro Gasparelo Leme- 14602421
-Matheus Cavalcanti de Santana - 13217506
-Gabriel Dezejácomo Maruschi - 14571525
-Johnatas Luiz dos Santos - 13676388
 
-Desenvolvido e testado no Fedora Linux 41
+Pedro Gasparelo Leme - 14602421  
+Matheus Cavalcanti de Santana - 13217506  
+Gabriel Dezejácomo Maruschi - 14571525  
+Johnatas Luiz dos Santos - 13676388  
+
+Desenvolvido e testado no Fedora Linux 41  
 Compilado no g++ (GCC) 14.3.1 20250808 (Red Hat 14.3.1-3)
 
 Para executar a aplicação:
