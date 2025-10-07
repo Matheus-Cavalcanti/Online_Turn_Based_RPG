@@ -124,8 +124,8 @@ public:
         // Cria inimigos para esta batalha
         _enemies.emplace_back("Goblin Arqueiro", 10, 0, 0, 7);
         _enemies.emplace_back("Ogro da Caverna", 10, 0, 0, 15);
-        _enemies.emplace_back("Esqueleto Molestador", 10, 0, 0, 15);
-        _enemies.emplace_back("Chupa-cu de Goiâninha", 10, 0, 0, 10);
+        _enemies.emplace_back("Esqueleto Malabarista", 10, 0, 0, 15);
+        _enemies.emplace_back("Fantasma", 10, 0, 0, 10);
     }
 
     void run() {
