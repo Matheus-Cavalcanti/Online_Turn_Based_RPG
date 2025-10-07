@@ -1,7 +1,7 @@
 #Compilator
 CXX         := g++
 #Compilator flags: C++17, include 'headers' root dir and show all warnings
-CXXFLAGS    := -std=c++17 -I./headers -Wall
+CXXFLAGS    := -std=c++17 -I./include -Wall
 
 #Linker flags:
 LDFLAGS_SERVER := -lpthread #lpthread for handling threads
@@ -10,7 +10,7 @@ LDFLAGS_CLIENT :=
 #Main dir
 SRC_DIR     := ./src
 BIN_DIR     := ./bin
-HEADERS_DIR := ./headers
+HEADERS_DIR := ./include
 
 #Server structure
 SERVER_SRC_DIR  := $(SRC_DIR)/server

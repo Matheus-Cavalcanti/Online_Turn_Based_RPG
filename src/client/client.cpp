@@ -9,22 +9,20 @@
 
 #define SERVER_IP "127.0.0.1" //IP local para testes
 #define PORT 8080
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 2024
 
 int main() {
-    //1. Criar o socket do cliente
+    // 1. Criação do socket e conexão (continua igual)
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == -1) {
         perror("Erro ao criar socket");
         return 1;
     }
 
-    //2. Conectar ao servidor
     sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     
-    //Converte o endereço de IP de string para o formato binário
     if (inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr) <= 0) {
         perror("Endereço de IP inválido");
         return 1;
@@ -35,39 +33,36 @@ int main() {
         return 1;
     }
 
-    std::cout << "Conectado ao servidor!" << std::endl;
+    std::cout << "Conectado ao servidor! Aguarde as instruções." << std::endl;
 
-    //3. Loop de comunicação
-    std::string line;
+    // 2. Novo loop de comunicação "reativo"
     char buffer[BUFFER_SIZE];
-
     while (true) {
-        std::cout << "Digite uma mensagem (ou 'exit' para sair): ";
-        std::getline(std::cin, line);
-
-        if (line == "exit") {
+        // Zera o buffer e espera por uma mensagem do servidor
+        memset(buffer, 0, BUFFER_SIZE);
+        int bytes_received = recv(sock, buffer, BUFFER_SIZE - 1, 0);
+        
+        if (bytes_received <= 0) {
+            std::cout << "\nServidor desconectado." << std::endl;
             break;
         }
-
-        //Adiciona o delimitador de nova linha
-        line += "\n";
-
-        //Envia a mensagem para o servidor
-        send(sock, line.c_str(), line.length(), 0);
-
-        //Zera o buffer e espera pela resposta
-        memset(buffer, 0, BUFFER_SIZE);
-        int bytes_received = recv(sock, buffer, BUFFER_SIZE, 0);
         
-        if (bytes_received > 0) {
-            std::cout << "Resposta: " << buffer << std::endl;
-        } else {
-            std::cout << "Servidor desconectado." << std::endl;
-            break;
+        // Imprime a mensagem recebida do servidor na tela
+        std::cout << buffer;
+        std::string server_msg(buffer);
+
+        // Verifica se a mensagem do servidor é um prompt que pede uma resposta.
+        // Usamos a presença de "> " como nosso indicador.
+        if (server_msg.find("> ") != std::string::npos) {
+            // Só agora pedimos input ao usuário
+            std::string user_input;
+            std::getline(std::cin, user_input);
+
+            // E enviamos a resposta para o servidor
+            send(sock, user_input.c_str(), user_input.length(), 0);
         }
     }
 
-    //Fecha o socket
     close(sock);
     return 0;
 }

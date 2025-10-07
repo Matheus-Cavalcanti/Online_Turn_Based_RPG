@@ -1,5 +1,7 @@
 // server.cpp
 #include <iostream>
+#include <map>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <thread>
@@ -8,37 +10,115 @@
 #include <sys/socket.h> //Para as funções de socket
 #include <netinet/in.h> //Para a estrutura sockaddr_in
 #include <arpa/inet.h>  //Para inet_ntoa
+#include <atomic> // Para o bool atômico
+#include <thread>   // Para std::this_thread::sleep_for
+#include <chrono>   // Para std::chrono::seconds
+
+#include "server/Player.hpp"
+#include "server/Enemy.hpp"
+#include "server/Battle.hpp"
 
 #define PORT 8080
 #define BUFFER_SIZE 1024
 
-//Função que será executada por cada thread para lidar com um cliente
+// --- Variáveis Globais para controle do Lobby ---
+std::vector<Player*> g_player_lobby;
+std::map<int, Player*> g_socket_map;
+std::mutex g_lobby_mutex;
+
+// Flag para sincronizar as threads. atomic é seguro para acesso sem mutex.
+std::atomic<bool> g_battleInProgress(false);
+
+const int PARTY_SIZE = 2; // Iniciar a batalha com 2 jogadores
+
+// FUNÇÃO AUXILIAR: Envia uma pergunta ao cliente e retorna a resposta como string.
+std::string requestClientInfo(int client_socket, const std::string& prompt) {
+    send(client_socket, prompt.c_str(), prompt.length(), 0);
+    char buffer[1024] = {0};
+    int bytes_received = recv(client_socket, buffer, 1024, 0);
+
+    if (bytes_received > 0) {
+        // Remove quebras de linha da resposta do cliente para limpar a string
+        buffer[strcspn(buffer, "\r\n")] = 0;
+        return std::string(buffer);
+    }
+    return ""; // Retorna string vazia se o cliente desconectar
+}
+
 void handle_client(int client_socket) {
-    char buffer[BUFFER_SIZE];
     std::cout << "Thread iniciada para o cliente " << client_socket << std::endl;
 
-    while (true) {
-        //Zera o buffer antes de receber novos dados
-        memset(buffer, 0, BUFFER_SIZE);
-
-        //recv() é bloqueante: a thread vai esperar aqui até receber dados
-        int bytes_received = recv(client_socket, buffer, BUFFER_SIZE, 0);
-
-        if (bytes_received <= 0) {
-            std::cout << "Cliente " << client_socket << " desconectado." << std::endl;
-            break; //Sai do loop se o cliente desconectou ou houve erro
-        }
-
-        // Exibe a mensagem recebida no servidor
-        std::cout << "Mensagem do cliente " << client_socket << ": " << buffer;
-
-        //Prepara e envia uma resposta (eco)
-        std::string response = "Servidor recebeu: ";
-        response += buffer;
-        send(client_socket, response.c_str(), response.length(), 0);
+    // =======================================================
+    // FASE 1: CRIAÇÃO DE PERSONAGEM
+    // =======================================================
+    
+    std::string playerName = requestClientInfo(client_socket, "Bem-vindo ao RPG! Digite o nome do seu personagem:\n> ");
+    if (playerName.empty()) {
+        std::cout << "Cliente " << client_socket << " desconectou durante a criação do nome." << std::endl;
+        close(client_socket);
+        return;
     }
 
-    //Fecha o socket específico deste cliente
+    std::string classPrompt = "\nOlá, " + playerName + "! Escolha sua classe:\n[1] Guerreiro\n[2] Cavaleiro\n> ";
+    std::string classChoiceStr = requestClientInfo(client_socket, classPrompt);
+    
+    Class playerClass = Class::deprived; // Classe padrão caso a escolha seja inválida
+    try {
+        int choice = std::stoi(classChoiceStr);
+        if (choice == 1) playerClass = Class::warrior;
+        else if (choice == 2) playerClass = Class::knight;
+        // Adicione outras classes aqui
+    } catch (const std::exception& e) {
+        // Se o cliente digitar algo que não é um número, ele se torna um "Deprived".
+    }
+
+    Player* currentPlayer = new Player(playerName, playerClass);
+    std::string creationMsg = "\nPersonagem " + currentPlayer->getName() + " da classe " + currentPlayer->getClass() + " criado com sucesso!\n";
+    send(client_socket, creationMsg.c_str(), creationMsg.length(), 0);
+
+
+    // =======================================================
+    // FASE 2: LÓGICA DE LOBBY
+    // =======================================================
+
+    bool isPartyLeader = false;
+    {
+        std::lock_guard<std::mutex> lock(g_lobby_mutex);
+        
+        g_player_lobby.push_back(currentPlayer);
+        g_socket_map[client_socket] = currentPlayer;
+
+        std::string waitMsg = "\nAguardando outros jogadores... (" + std::to_string(g_player_lobby.size()) + "/" + std::to_string(PARTY_SIZE) + ")\n";
+        send(client_socket, waitMsg.c_str(), waitMsg.length(), 0);
+
+        if (g_player_lobby.size() == PARTY_SIZE) {
+            isPartyLeader = true;
+            g_battleInProgress = true;
+        }
+    }
+
+    // O resto da lógica de espera e batalha permanece o mesmo
+    if (isPartyLeader) {
+        Battle battle(g_player_lobby, g_socket_map);
+        battle.run();
+        {
+            std::lock_guard<std::mutex> lock(g_lobby_mutex);
+            for(auto p : g_player_lobby) delete p;
+            g_player_lobby.clear();
+            g_socket_map.clear();
+        }
+        g_battleInProgress = false;
+    } else {
+        while (!g_battleInProgress) {
+            if (g_player_lobby.empty()) break;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        while (g_battleInProgress) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    }
+    
+    std::cout << "Encerrando conexão para o cliente " << client_socket << "." << std::endl;
     close(client_socket);
 }
 
@@ -92,7 +172,7 @@ int main() {
         client_thread.detach();
     }
 
-    //Fecha o socket principal (este código nunca será alcançado no loop infinito)
+    //Fecha o socket principal (esta linha nunca será alcançada no loop infinito)
     close(server_fd);
     return 0;
 }
