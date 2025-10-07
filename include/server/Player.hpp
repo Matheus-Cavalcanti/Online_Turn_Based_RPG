@@ -38,9 +38,15 @@ private:
     //Função auxiliar estática para obter os atributos antes de construir o objeto
     static Attributes getAttributesForClass(Class p_class) {
         switch (p_class) {
-            case warrior: return {11, 8, 12, 13, 13, 11, 9, 9};
-            case knight:  return {14, 10, 10, 11, 11, 10, 9, 11};
-            case wanderer:return {10, 11, 10, 10, 14, 12, 11, 8};
+            case warrior:       return {11, 8, 12, 13, 13, 11, 9, 9};
+            case knight:        return {14, 10, 10, 11, 11, 10, 9, 11};
+            case wanderer:      return {10, 11, 10, 10, 14, 12, 11, 8};
+            case thief:         return {9, 11, 9, 9, 15, 10, 12, 11};
+            case bandit:        return {12, 8, 14, 14, 9, 11, 8, 10};
+            case hunter:        return {11, 9, 11, 12, 14, 11, 9, 9};
+            case sorcerer:      return {8, 15, 8, 9, 11, 8, 15, 8};
+            case pyromancer:    return {10, 12, 11, 12, 9, 12, 10, 8};
+            case cleric:        return {11, 11, 9, 12, 8, 11, 8, 14};
             // ... outras classes
             default:      return {11, 11, 11, 11, 11, 11, 11, 11}; // Deprived
         }

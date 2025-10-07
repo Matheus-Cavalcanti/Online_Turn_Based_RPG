@@ -65,9 +65,22 @@ void handle_client(int client_socket) {
     Class playerClass = Class::deprived; // Classe padrão caso a escolha seja inválida
     try {
         int choice = std::stoi(classChoiceStr);
-        if (choice == 1) playerClass = Class::warrior;
-        else if (choice == 2) playerClass = Class::knight;
-        // Adicione outras classes aqui
+        switch (choice) {
+            case 1: playerClass = Class::warrior;
+            break;
+
+            case 2: playerClass = Class::knight;
+            break;
+
+            case 3: playerClass = Class::wanderer;
+            break;
+
+            case 4: playerClass = Class::thief;
+            break;
+
+            case 5: playerClass = Class::bandit;
+            break;
+        }
     } catch (const std::exception& e) {
         // Se o cliente digitar algo que não é um número, ele se torna um "Deprived".
     }
