@@ -29,8 +29,6 @@ std::mutex g_lobby_mutex;
 // Flag para sincronizar as threads. atomic é seguro para acesso sem mutex.
 std::atomic<bool> g_battleInProgress(false);
 
-const int PARTY_SIZE = 2; // Iniciar a batalha com 2 jogadores
-
 // FUNÇÃO AUXILIAR: Envia uma pergunta ao cliente e retorna a resposta como string.
 std::string requestClientInfo(int client_socket, const std::string& prompt) {
     send(client_socket, prompt.c_str(), prompt.length(), 0);
@@ -45,8 +43,8 @@ std::string requestClientInfo(int client_socket, const std::string& prompt) {
     return ""; // Retorna string vazia se o cliente desconectar
 }
 
-void handle_client(int client_socket) {
-    std::cout << "Thread iniciada para o cliente " << client_socket << std::endl;
+void handle_client(int client_socket, int party_size) {
+    //std::cout << "Thread iniciada para o cliente " << client_socket << std::endl;
 
     // =======================================================
     // FASE 1: CRIAÇÃO DE PERSONAGEM
@@ -77,8 +75,8 @@ void handle_client(int client_socket) {
     }
 
     Player* currentPlayer = new Player(playerName, playerClass);
-    std::string creationMsg = "\nPersonagem " + currentPlayer->getName() + " da classe " + currentPlayer->getClass() + " criado com sucesso!\n";
-    send(client_socket, creationMsg.c_str(), creationMsg.length(), 0);
+    //std::string creationMsg = "\nPersonagem " + currentPlayer->getName() + " da classe " + currentPlayer->getClass() + " criado com sucesso!\n";
+    //send(client_socket, creationMsg.c_str(), creationMsg.length(), 0);
 
 
     // =======================================================
@@ -86,19 +84,38 @@ void handle_client(int client_socket) {
     // =======================================================
 
     bool isPartyLeader = false;
+    bool accepted = false;
     {
         std::lock_guard<std::mutex> lock(g_lobby_mutex);
         
-        g_player_lobby.push_back(currentPlayer);
-        g_socket_map[client_socket] = currentPlayer;
+        //Verificação do número de jogadores no lobby
+        if (static_cast<int>(g_player_lobby.size()) < party_size) {
+            //Se há espaço, o jogador é aceito.
+            accepted = true;
+            std::cout << "Jogador " << playerName << " aceito no lobby." << std::endl;
+            
+            g_player_lobby.push_back(currentPlayer);
+            g_socket_map[client_socket] = currentPlayer;
 
-        std::string waitMsg = "\nAguardando outros jogadores... (" + std::to_string(g_player_lobby.size()) + "/" + std::to_string(PARTY_SIZE) + ")\n";
-        send(client_socket, waitMsg.c_str(), waitMsg.length(), 0);
+            std::string creationMsg = "\nPersonagem " + currentPlayer->getName() + " criado com sucesso!\n";
+            std::string waitMsg = "\nAguardando outros jogadores... (" + std::to_string(g_player_lobby.size()) + "/" + std::to_string(party_size) + ")\n";
+            send(client_socket, (creationMsg + waitMsg).c_str(), (creationMsg + waitMsg).length(), 0);
 
-        if (g_player_lobby.size() == PARTY_SIZE) {
-            isPartyLeader = true;
-            g_battleInProgress = true;
+            if (static_cast<int>(g_player_lobby.size()) == party_size) {
+                isPartyLeader = true;
+                g_battleInProgress = true;
+            }
         }
+    } //Mutex liberado
+
+    if (!accepted) {
+        //Se não foi aceito, o lobby estava cheio.
+        std::cout << "Conexão rejeitada para " << playerName << ". A sala está cheia." << std::endl;
+        const char* msg = "\nA sala está cheia. Tente novamente mais tarde.\n";
+        send(client_socket, msg, strlen(msg), 0);
+        delete currentPlayer; //Limpa a memória do personagem que não será usado.
+        close(client_socket);
+        return;
     }
 
     // O resto da lógica de espera e batalha permanece o mesmo
@@ -153,6 +170,11 @@ int main() {
 
     std::cout << "Servidor escutando na porta " << PORT << std::endl;
 
+    std::cout << "Quantos jogadores haverá?" << std::endl;
+    int party_s = 0;
+    std::cin >> party_s;
+    std::cout << "Aguardando " << party_s << " jogadores se conectarem..." << std::endl;
+
     //4. Loop infinito para aceitar novas conexões
     while (true) {
         sockaddr_in client_addr;
@@ -165,14 +187,14 @@ int main() {
             perror("Erro de Accept");
             continue; // Continua para a próxima iteração
         }
-        
+
         char client_ip[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
         std::cout << "Novo cliente conectado: " << client_ip << " no socket " << client_socket << std::endl;
 
         //Cria uma nova thread para lidar com este cliente
         //.detach() faz com que a thread rode de forma independente
-        std::thread client_thread(handle_client, client_socket);
+        std::thread client_thread(handle_client, client_socket, party_s);
         client_thread.detach();
     }
 

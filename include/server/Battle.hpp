@@ -122,8 +122,10 @@ public:
     Battle(std::vector<Player*>& players, std::map<int, Player*>& playerSockets)
         : _players(players), _playerSockets(playerSockets), _state(BattleState::ONGOING) {
         // Cria inimigos para esta batalha
-        _enemies.emplace_back("Goblin Arqueiro", 30, 0, 0, 7); // Usando a versão corrigida do construtor
-        _enemies.emplace_back("Ogro da Caverna", 80, 0, 0, 15);
+        _enemies.emplace_back("Goblin Arqueiro", 10, 0, 0, 7);
+        _enemies.emplace_back("Ogro da Caverna", 10, 0, 0, 15);
+        _enemies.emplace_back("Esqueleto Molestador", 10, 0, 0, 15);
+        _enemies.emplace_back("Chupa-cu de Goiâninha", 10, 0, 0, 10);
     }
 
     void run() {
