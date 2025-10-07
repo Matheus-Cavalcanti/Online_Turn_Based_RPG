@@ -71,15 +71,6 @@ void handle_client(int client_socket) {
 
             case 2: playerClass = Class::knight;
             break;
-
-            case 3: playerClass = Class::wanderer;
-            break;
-
-            case 4: playerClass = Class::thief;
-            break;
-
-            case 5: playerClass = Class::bandit;
-            break;
         }
     } catch (const std::exception& e) {
         // Se o cliente digitar algo que não é um número, ele se torna um "Deprived".
