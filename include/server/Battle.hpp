@@ -43,7 +43,7 @@ private:
 
     void processPlayerTurn(Player* activePlayer) {
         // Encontra o socket do jogador ativo
-        int playerSocket = -1;
+        int playerSocket = -1, waitAction = 1;
         for (auto const& [socket, player] : _playerSockets) {
             if (player == activePlayer) {
                 playerSocket = socket;
@@ -52,42 +52,44 @@ private:
         }
         if (playerSocket == -1) return; // Jogador não encontrado/desconectado
 
-        broadcast("\nÉ o turno de " + activePlayer->getName() + ".\n");
-        
-        // Apresenta alvos
-        std::string targetsMsg = "Escolha um alvo:\n";
-        for (size_t i = 0; i < _enemies.size(); ++i) {
-            if (_enemies[i].getHp() > 0) {
-                targetsMsg += "[" + std::to_string(i + 1) + "] " + _enemies[i].getName() + " (HP: " + std::to_string(_enemies[i].getHp()) + ")\n";
+        while (waitAction) {
+            broadcast("\nÉ o turno de " + activePlayer->getName() + ".\n");
+            
+            // Apresenta alvos
+            std::string targetsMsg = "Escolha um alvo:\n";
+            for (size_t i = 0; i < _enemies.size(); ++i) {
+                if (_enemies[i].getHp() > 0) {
+                    targetsMsg += "[" + std::to_string(i + 1) + "] " + _enemies[i].getName() + " (HP: " + std::to_string(_enemies[i].getHp()) + ")\n";
+                }
             }
-        }
-        targetsMsg += "Comando: atacar <numero_do_alvo>\n> ";
-        send(playerSocket, targetsMsg.c_str(), targetsMsg.length(), 0);
+            targetsMsg += "Comando: atacar <numero_do_alvo>\n> ";
+            send(playerSocket, targetsMsg.c_str(), targetsMsg.length(), 0);
 
-        // Recebe e processa o comando
-        char buffer[1024];
-        memset(buffer, 0, 1024);
-        recv(playerSocket, buffer, 1024, 0);
-        buffer[strcspn(buffer, "\r\n")] = 0;
-        std::string command(buffer);
+            // Recebe e processa o comando
+            char buffer[1024];
+            memset(buffer, 0, 1024);
+            recv(playerSocket, buffer, 1024, 0);
+            buffer[strcspn(buffer, "\r\n")] = 0;
+            std::string command(buffer);
 
-        // Lógica de comando simples (ex: "atacar 1")
-        if (command.rfind("atacar ", 0) == 0) {
-            size_t targetIndex = std::stoi(command.substr(7)) - 1;
-            if (targetIndex < _enemies.size() && _enemies[targetIndex].getHp() > 0) {
-                int damage = 10; // Dano fixo
-                _enemies[targetIndex].takeDamage(damage);
-                broadcast(activePlayer->getName() + " ataca " + _enemies[targetIndex].getName() + " e causa " + std::to_string(damage) + " de dano!\n");
-                if (_enemies[targetIndex].getHp() == 0) {
-                    broadcast(_enemies[targetIndex].getName() + " foi derrotado!\n");
+            // Lógica de comando simples (ex: "atacar 1")
+            if (command.rfind("atacar ", 0) == 0) {
+                size_t targetIndex = std::stoi(command.substr(7)) - 1;
+                if (targetIndex < _enemies.size() && _enemies[targetIndex].getHp() > 0) {
+                    waitAction = 0;
+                    int damage = 10; // Dano fixo
+                    _enemies[targetIndex].takeDamage(damage);
+                    broadcast(activePlayer->getName() + " ataca " + _enemies[targetIndex].getName() + " e causa " + std::to_string(damage) + " de dano!\n");
+                    if (_enemies[targetIndex].getHp() == 0) {
+                        broadcast(_enemies[targetIndex].getName() + " foi derrotado!\n");
+                    }
+                } else {
+                    send(playerSocket, "Alvo inválido.\n", 16, 0);
                 }
             } else {
-                send(playerSocket, "Alvo inválido.\n", 18, 0);
-                processPlayerTurn(activePlayer); // Pede para o jogador tentar de novo
+                send(playerSocket, "Comando inválido.\n", 19, 0);
             }
-        } else {
-             send(playerSocket, "Comando inválido.\n", 19, 0);
-             processPlayerTurn(activePlayer); // Tenta de novo
+            broadcast("ok\n");
         }
     }
 
@@ -120,8 +122,10 @@ public:
     Battle(std::vector<Player*>& players, std::map<int, Player*>& playerSockets)
         : _players(players), _playerSockets(playerSockets), _state(BattleState::ONGOING) {
         // Cria inimigos para esta batalha
-        _enemies.emplace_back("Goblin Arqueiro", 30, 0, 0, 7); // Usando a versão corrigida do construtor
-        _enemies.emplace_back("Ogro da Caverna", 80, 0, 0, 15);
+        _enemies.emplace_back("Goblin Arqueiro", 10, 0, 0, 7);
+        _enemies.emplace_back("Ogro da Caverna", 10, 0, 0, 15);
+        _enemies.emplace_back("Esqueleto Molestador", 10, 0, 0, 15);
+        _enemies.emplace_back("Chupa-cu de Goiâninha", 10, 0, 0, 10);
     }
 
     void run() {
